@@ -23,7 +23,7 @@ def grab_unit(size_in_bytes):
     counter = 0
     for unit, val in UNITS_SIZE.items():
         if size_in_bytes / val[1] < 1024:
-            return '{}{}'.format(size_in_bytes / UNITS_SIZE[counter][1], UNITS_SIZE[counter][0])
+            return '{0:>6}{1:>2}'.format(round(size_in_bytes / float(UNITS_SIZE[counter][1]), 3), UNITS_SIZE[counter][0])
         else:
             counter += 1
 
