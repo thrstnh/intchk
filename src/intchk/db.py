@@ -86,10 +86,10 @@ def dbstats(env):
         size, length = slurp(join(DB_DIR, '{}-{}.sqlite'.format(label, env['ALGORITHM'])))
         stats['size'] += size
         stats['length'] += length
-        out = 'STORE {0:>23} {1:>6} files {2:>5}  -> {3}'
+        out = 'STORE {0:>23} {1:>6} files {2:>10}  -> {3}'
         print(out.format(label, length, grab_unit(size), store))
     stats['size'] = grab_unit(stats['size'])
-    out = 'TOTAL               {length:>6} files {size:>5}'
+    out = 'TOTAL                         {length:>6} files {size:>10}'
     print(out.format(**stats))
 
 def slurp(path):
