@@ -4,7 +4,7 @@ import sys
 sys.path.append('.')
 from time import time
 from os.path import join, walk
-from db import SQLhash
+from db import SQLhash, dbstats
 from deflog import now, init_logger
 from actions import rescan
 from tools import grab_unit, init_env, ftime, DB_DIR, LOG_DIR
@@ -33,6 +33,9 @@ def service(label, algorithm=None):
         lab = ['  - {} => {}'.format(k,v) for k,v in ICENV['WATCHED'].items()]
         print('labels:\n{}'.format('\n'.join(lab)))
         return
+    if label == 'stats':
+        dbstats(ICENV)
+        return
     stats = dict(fnew=0, fdiffers=0, ftotal=0, fskipped=0, size_new=0, size_skipped=0)
     for name, path in ICENV['WATCHED'].items():
         if name != label and label != 'all':
@@ -59,6 +62,7 @@ def service(label, algorithm=None):
             logger.debug('caught KeyboardInterrupt; stop!')
         except Exception as err:
             logger.debug('undefined error: {}'.format(err))
+            raise err
         tstop = time()
         data = dict(line = 79 * '-',
                     algorithm = ICENV['ALGORITHM'],

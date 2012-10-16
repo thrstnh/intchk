@@ -17,10 +17,7 @@ if not exists(ROOT_DIR):
     mkdir(DB_DIR)
 
 UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-UNITS_SIZE = {}
-#map(lambda unit, val: UNITS_SIZE.update({val: (unit, pow(1024, val))}), UNITS, range(len(UNITS)))
-for unit, val in zip(UNITS, range(len(UNITS))):
-    UNITS_SIZE.update({val: (unit, pow(1024, val))})
+UNITS_SIZE = {val: (unit, pow(1024, val)) for unit, val in zip(UNITS, range(len(UNITS)))}
 
 def grab_unit(size_in_bytes):
     counter = 0

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from os.path import join
 from sqlite3 import connect
 from time import time
+from tools import DB_DIR, grab_unit
 
 
 STMT = {'CREATE': '''CREATE TABLE IF NOT EXISTS intchk (
@@ -75,3 +77,27 @@ class SQLhash(object):
     def length(self):
         self._exec_sql(STMT['LENGTH'])
         return self.cursor.fetchone()[0]
+
+
+def dbstats(env):
+    stats = dict(size=0,
+                 length=0)
+    for label, store in env['WATCHED'].items():
+        size, length = slurp(join(DB_DIR, '{}-{}.sqlite'.format(label, env['ALGORITHM'])))
+        stats['size'] += size
+        stats['length'] += length
+        out = 'STORE {0:>13} {1:>6} files {2:>5}  -> {3}'
+        print(out.format(label, length, grab_unit(size), store))
+    stats['size'] = grab_unit(stats['size'])
+    out = 'TOTAL               {length:>6} files {size:>5}'
+    print(out.format(**stats))
+
+def slurp(path):
+    with connect(path) as conn:
+        conn.text_factory = str
+        cur = conn.cursor()
+        cur.execute(STMT['SIZE'])
+        size = cur.fetchone()[0]
+        cur.execute(STMT['LENGTH'])
+        length = cur.fetchone()[0]
+        return size, length

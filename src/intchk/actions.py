@@ -52,7 +52,7 @@ def rescan(args, dirname, files):
                 checksum, took = hash_pipe(path, sql_hasher.ctype)
                 size = fpinfo.st_size
                 stats['size_new'] += size
-                out = '* [{} in {}] \t{}'
+                out = '* [{0:>5} {1:>7}] \t{2}'
                 log.info(out.format(grab_unit(size), ftime(took), upath))
                 sql_hasher.insert(path, checksum, size, took)
                 stats['fnew'] += 1
