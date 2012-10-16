@@ -34,6 +34,7 @@ def rescan(args, dirname, files):
                 last_check = (time() - dbentry[5])
                 if last_check < env['INTERVAL']:
                     stats['fskipped'] += 1
+                    stats['size_skipped'] += dbentry[2]
                     days = (env['INTERVAL'] - last_check) / (60 * 60 * 24)
                     out = '- [in {} days] \t{}'
                     log.info(out.format(round(days, 2), upath))

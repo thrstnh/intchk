@@ -33,7 +33,7 @@ def service(label, algorithm=None):
         lab = ['  - {} => {}'.format(k,v) for k,v in ICENV['WATCHED'].items()]
         print('labels:\n{}'.format('\n'.join(lab)))
         return
-    stats = dict(fnew=0, fdiffers=0, ftotal=0, fskipped=0, size_new=0)
+    stats = dict(fnew=0, fdiffers=0, ftotal=0, fskipped=0, size_new=0, size_skipped=0)
     for name, path in ICENV['WATCHED'].items():
         if name != label and label != 'all':
             continue
@@ -74,19 +74,17 @@ def service(label, algorithm=None):
 {line}
 :algorithm     {algorithm}
 :label         {label}   ->   {path}
-:files         {filecount}
-   new         {fnew}
-   skipped     {fskipped}
-   total       {ftotal}
 
-:size
-   new      {size_new}
-   total    {size_sum}
+            files       size
+new             {fnew:>}        {size_new:>}
+skipped         {fskipped:>}        {size_skipped:>}
+total           {ftotal:>}        {size_sum:>}
 
 this run took {took}
 {line}'''
         data.update(stats)
-        data['size_new'] = grab_unit(data['size_new'])
+        for key in ['size_new', 'size_skipped']:
+            data[key] = grab_unit(data[key])
         logger.info(summary.format(**data))
 
 
