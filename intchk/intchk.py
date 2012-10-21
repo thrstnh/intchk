@@ -62,10 +62,8 @@ def scan_store(name, dry=False):
     if name not in ICENV['WATCHED']:
         raise IOError('store does not exist!')
     path = ICENV['WATCHED'][name]
-    dbfp = dbfile(name, ICENV)
-    logfp = join(LOG_DIR, '{}-{}-{}.log'.format(name, ICENV['ALGORITHM'], now()))
-    logger = init_logger(logfp)
-    sql_hasher = SQLhash(dbfp, ICENV['ALGORITHM'])
+    logger = init_logger(join(LOG_DIR, '{}-{}-{}.log'.format(name, ICENV['ALGORITHM'], now())))
+    sql_hasher = SQLhash(dbfile(name, ICENV), ICENV['ALGORITHM'])
     tstart = time()
     try:
         if not dry:
@@ -76,22 +74,19 @@ def scan_store(name, dry=False):
         logger.debug('undefined error: {}'.format(err))
         raise err
     tstop = time()
-    size = sql_hasher.size()
-    tdiff = tstop - tstart
-    speed = (stats['size_new'] / pow(1024, 2)) / (tdiff or 1)
-    data = dict(line = 79 * '-',
-                algorithm = ICENV['ALGORITHM'],
-                label =  name,
-                path = path,
-                filecount = sql_hasher.length(),
-                runtime = round(tstop - tstart, 5),
-                size_sum = grab_unit(size),
-                took = ftime(tdiff),
-                speed = speed)
-    data.update(stats)
+    stats['size'] = sql_hasher.size()
+    stats['tdiff'] = tstop - tstart
+    stats['speed'] = (stats['size_new'] / pow(1024, 2)) / (stats['tdiff'] or 1)
+    stats['line'] = 79 * '-'
+    stats['algorithm'] = ICENV['ALGORITHM']
+    stats['label'] = name
+    stats['filecount'] = sql_hasher.length()
+    stats['runtime'] = round(tstop - tstart, 5)
+    stats['size_sum'] = grab_unit(stats['size'])
+    stats['took'] = ftime(stats['tdiff'])
     for key in ['size_new', 'size_skipped']:
-        data[key] = grab_unit(data[key])
-    return data
+        stats[key] = grab_unit(stats[key])
+    return stats
 
 def intchk_parser():
     parser = argparse.ArgumentParser()
@@ -130,8 +125,7 @@ def run():
     if args.scan:
         scan_store(args.scan)
     if args.rescan:
-        for name, path in ICENV['WATCHED'].items():
-            print(show_store(name, False))
+        map(show_store, [(name, False) for name in ICENV['WATCHED'].keys()])
     if not args.store and not args.rescan:
         print(labels())
         return
