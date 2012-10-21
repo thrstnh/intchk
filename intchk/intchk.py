@@ -36,9 +36,9 @@ ICENV = init_env()
 
 def dump_entries():
     keys = ICENV['WATCHED'].keys()
-    paths = map(dbfile, keys,
-                        [ICENV for _ in range(len(keys))])
-    return map(slurp_all, paths)
+    return map(slurp_all,
+                map(dbfile, keys,
+                            [ICENV for _ in range(len(keys))]))
 
 def show_store(name, dry=True):
     return '''
@@ -62,6 +62,7 @@ def scan_store(name, dry=False):
     if name not in ICENV['WATCHED']:
         raise IOError('store does not exist!')
     path = ICENV['WATCHED'][name]
+    stats['path'] = path
     logger = init_logger(join(LOG_DIR, '{}-{}-{}.log'.format(name, ICENV['ALGORITHM'], now())))
     sql_hasher = SQLhash(dbfile(name, ICENV), ICENV['ALGORITHM'])
     tstart = time()
@@ -90,7 +91,7 @@ def scan_store(name, dry=False):
 
 def intchk_parser():
     parser = argparse.ArgumentParser()
-    bools = {
+    options = {
             'store': ['-s', '--store', 'show label', str],
             'scan': ['-S', '--scan', 'scan store', str],
             'algorithm': ['-a', '--algorithm', 'set cryptographic hash type', str],
@@ -98,7 +99,7 @@ def intchk_parser():
             'all':   ['-r', '--rescan', 'rescan all', 'store_true'],
             'logs': ['-l', '--logs', 'show logs', 'store_true'],
             'verbose': ['-v', '--verbose', 'increase output verbosity', 'store_true']}
-    for k, opt in bools.items():
+    for k, opt in options.items():
         short, long, help, action = opt
         if type(action) == type:
             parser.add_argument(short, long, help=help, type=action)
@@ -123,9 +124,10 @@ def run():
     if args.store:
         print(show_store(args.store))
     if args.scan:
-        scan_store(args.scan)
+        print(show_store(args.scan, False))
     if args.rescan:
-        map(show_store, [(name, False) for name in ICENV['WATCHED'].keys()])
+        for name in ICENV['WATCHED'].keys():
+            print(show_store(name, False))
     if not args.store and not args.rescan:
         print(labels())
         return
