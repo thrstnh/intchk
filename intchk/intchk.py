@@ -43,12 +43,16 @@ def dump_entries():
 
 def service(label, algorithm=None, rescan_all=False):
     found = False
+    stop = False
     stats = dict(fnew=0, fdiffers=0, ftotal=0, fskipped=0, size_new=0, size_skipped=0)
     for name, path in ICENV['WATCHED'].items():
+        if stop:
+            return
         if name == label:
             found = True
-        if name != label and not rescan_all:
-            continue
+        if not rescan_all:
+            if name != label:
+                continue
         out = '{}-{}'.format(name, ICENV['ALGORITHM'])
         dbfp = join(DB_DIR, out + '.sqlite')
         logfp = join(LOG_DIR, '{}-{}.log'.format(out, now()))
@@ -69,6 +73,7 @@ def service(label, algorithm=None, rescan_all=False):
             walk(path, rescan, (ICENV, logger, sql_hasher, stats))
         except KeyboardInterrupt:
             logger.debug('caught KeyboardInterrupt; stop!')
+            stop = True
         except Exception as err:
             logger.debug('undefined error: {}'.format(err))
             raise err
@@ -141,7 +146,7 @@ def run():
         data = dump_entries()
         print(data)
         return data
-    if not args.store:
+    if not args.store and not args.rescan:
         print(labels())
         return
     service(args.store, args.algorithm, args.rescan)
