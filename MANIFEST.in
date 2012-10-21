@@ -1,0 +1,2 @@
+include scripts/intchk README.md
+recursive-include intchk *

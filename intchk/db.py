@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from os.path import join
+from os.path import join, exists
 from sqlite3 import connect
 from time import time
 from tools import DB_DIR, grab_unit
@@ -27,6 +27,8 @@ STMT = {'CREATE': '''CREATE TABLE IF NOT EXISTS intchk (
                             FROM intchk
                             WHERE 1
                                 AND path = ?;''',
+
+        'ALL': 'SELECT path, chksum, size, took, first, last FROM intchk;',
 
         'OLDEST': '''SELECT MIN(first) FROM intchk;''',
 
@@ -83,7 +85,11 @@ def dbstats(env):
     stats = dict(size=0,
                  length=0)
     for label, store in env['WATCHED'].items():
-        size, length = slurp(join(DB_DIR, '{}-{}.sqlite'.format(label, env['ALGORITHM'])))
+        dbfile = join(DB_DIR, '{}-{}.sqlite'.format(label, env['ALGORITHM']))
+        if not exists(dbfile):
+            print('FileNotFound:{}'.format(dbfile))
+            continue
+        size, length = slurp(dbfile)
         stats['size'] += size
         stats['length'] += length
         out = 'STORE {0:>23} {1:>6} files {2:>10}  -> {3}'
@@ -91,8 +97,14 @@ def dbstats(env):
     stats['size'] = grab_unit(stats['size'])
     out = 'TOTAL                         {length:>6} files {size:>10}'
     print(out.format(**stats))
+    return stats
+
+def dbfile(label, env):
+    return join(DB_DIR, '{}-{}.sqlite'.format(label, env['ALGORITHM']))
 
 def slurp(path):
+    if not exists(path):
+        raise IOError()
     with connect(path) as conn:
         conn.text_factory = str
         cur = conn.cursor()
@@ -101,3 +113,12 @@ def slurp(path):
         cur.execute(STMT['LENGTH'])
         length = cur.fetchone()[0]
         return size, length
+
+def slurp_all(path, pattern=None):
+    if not exists(path):
+        raise IOError('file not found!\n\n{}'.format(path))
+    with connect(path) as conn:
+        conn.text_factory = str
+        cur = conn.cursor()
+        cur.execute(STMT['ALL'])
+        return [x for x in cur]
