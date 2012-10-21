@@ -8,7 +8,7 @@ from os.path import join, walk
 from db import SQLhash, dbstats, dbfile, slurp_all
 from deflog import now, init_logger
 from actions import rescan
-from tools import grab_unit, init_env, ftime, DB_DIR, LOG_DIR
+from tools import grab_unit, init_env, ftime, LOG_DIR
 r'''
 This tool scans directories and stores the size of the file in bytes
 and also the sha512sum (or another hash, decide for yourself, which
@@ -40,57 +40,8 @@ def dump_entries():
                         [ICENV for _ in range(len(keys))])
     return map(slurp_all, paths)
 
-
-def service(label, algorithm=None, rescan_all=False):
-    found = False
-    stop = False
-    stats = dict(fnew=0, fdiffers=0, ftotal=0, fskipped=0, size_new=0, size_skipped=0)
-    for name, path in ICENV['WATCHED'].items():
-        if stop:
-            return
-        if name == label:
-            found = True
-        if not rescan_all:
-            if name != label:
-                continue
-        out = '{}-{}'.format(name, ICENV['ALGORITHM'])
-        dbfp = join(DB_DIR, out + '.sqlite')
-        logfp = join(LOG_DIR, '{}-{}.log'.format(out, now()))
-        logger = init_logger(logfp)
-        sql_hasher = None
-        if algorithm:
-            out = 'using non-config algorithm!\n'\
-                    'config-algorithm: {}\n'\
-                    'using:            {}'
-            logger.info(out.format(ICENV['ALGORITHM'], algorithm))
-            sql_hasher = SQLhash(logger, dbfp, algorithm)
-        else:
-            out = 'using config algorithm: {}'
-            logger.info(out.format(ICENV['ALGORITHM']))
-            sql_hasher = SQLhash(dbfp, ICENV['ALGORITHM'])
-        tstart = time()
-        try:
-            walk(path, rescan, (ICENV, logger, sql_hasher, stats))
-        except KeyboardInterrupt:
-            logger.debug('caught KeyboardInterrupt; stop!')
-            stop = True
-        except Exception as err:
-            logger.debug('undefined error: {}'.format(err))
-            raise err
-        tstop = time()
-        size = sql_hasher.size()
-        tdiff = tstop - tstart
-        speed = (stats['size_new'] / pow(1024, 2)) / tdiff
-        data = dict(line = 79 * '-',
-                    algorithm = ICENV['ALGORITHM'],
-                    label =  name,
-                    path = path,
-                    filecount = sql_hasher.length(),
-                    runtime = round(tstop - tstart, 5),
-                    size_sum = grab_unit(size),
-                    took = ftime(tdiff),
-                    speed = speed)
-        summary = '''
+def show_store(name, dry=True):
+    return '''
 {line}
 ::summary
 {line}
@@ -100,24 +51,52 @@ def service(label, algorithm=None, rescan_all=False):
             files       size
 new             {fnew:>}        {size_new:>}
 skipped         {fskipped:>}        {size_skipped:>}
-total           {ftotal:>}        {size_sum:>}
+total           {filecount:>}        {size_sum:>}
 
 this run took {took}
 average speed {speed}MB/s
-{line}'''
-        data.update(stats)
-        for key in ['size_new', 'size_skipped']:
-            data[key] = grab_unit(data[key])
-        logger.info(summary.format(**data))
-    if not found:
-        print('sorry! store "{}" does not exist!'.format(label))
+{line}'''.format(**scan_store(name, dry))
 
-
+def scan_store(name, dry=False):
+    stats = dict(fnew=0, fdiffers=0, ftotal=0, fskipped=0, size_new=0, size_skipped=0)
+    if name not in ICENV['WATCHED']:
+        raise IOError('store does not exist!')
+    path = ICENV['WATCHED'][name]
+    dbfp = dbfile(name, ICENV)
+    logfp = join(LOG_DIR, '{}-{}-{}.log'.format(name, ICENV['ALGORITHM'], now()))
+    logger = init_logger(logfp)
+    sql_hasher = SQLhash(dbfp, ICENV['ALGORITHM'])
+    tstart = time()
+    try:
+        if not dry:
+            walk(path, rescan, (ICENV, logger, sql_hasher, stats))
+    except KeyboardInterrupt:
+        logger.debug('caught KeyboardInterrupt; stop!')
+    except Exception as err:
+        logger.debug('undefined error: {}'.format(err))
+        raise err
+    tstop = time()
+    size = sql_hasher.size()
+    tdiff = tstop - tstart
+    speed = (stats['size_new'] / pow(1024, 2)) / (tdiff or 1)
+    data = dict(line = 79 * '-',
+                algorithm = ICENV['ALGORITHM'],
+                label =  name,
+                path = path,
+                filecount = sql_hasher.length(),
+                runtime = round(tstop - tstart, 5),
+                size_sum = grab_unit(size),
+                took = ftime(tdiff),
+                speed = speed)
+    data.update(stats)
+    for key in ['size_new', 'size_skipped']:
+        data[key] = grab_unit(data[key])
+    return data
 
 def intchk_parser():
     parser = argparse.ArgumentParser()
     bools = {
-            'show': ['-s', '--store', 'show label', str],
+            'store': ['-s', '--store', 'show label', str],
             'scan': ['-S', '--scan', 'scan store', str],
             'algorithm': ['-a', '--algorithm', 'set cryptographic hash type', str],
             'dump': ['-d', '--dump', 'dump all entries', 'store_true'],
@@ -146,10 +125,16 @@ def run():
         data = dump_entries()
         print(data)
         return data
+    if args.store:
+        print(show_store(args.store))
+    if args.scan:
+        scan_store(args.scan)
+    if args.rescan:
+        for name, path in ICENV['WATCHED'].items():
+            print(show_store(name, False))
     if not args.store and not args.rescan:
         print(labels())
         return
-    service(args.store, args.algorithm, args.rescan)
 
 
 if __name__ == '__main__':
